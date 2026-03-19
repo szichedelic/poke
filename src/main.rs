@@ -1,6 +1,7 @@
 mod config;
 mod detect;
 mod display;
+mod hook;
 mod models;
 mod switch;
 
@@ -62,7 +63,10 @@ fn cmd_watch() {
 }
 
 fn cmd_hook_notify() {
-    eprintln!("hook-notify not yet implemented.");
+    if let Err(e) = hook::run() {
+        eprintln!("poke hook-notify: {}", e);
+        std::process::exit(1);
+    }
 }
 
 fn cmd_init() {
