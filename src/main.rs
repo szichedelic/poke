@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use poke::{config, detect, display, hook, init};
+use poke::{config, detect, display, hook, init, switch};
 
 #[derive(Parser)]
 #[command(name = "poke", version, about = "Agent attention aggregator")]
@@ -24,6 +24,15 @@ enum Commands {
     HookNotify,
     /// Set up agent hooks (e.g., Claude Code notification hook)
     Init,
+    /// Send a quick response to a waiting agent without switching
+    Respond {
+        /// Agent number from the list (1-indexed)
+        #[arg()]
+        agent_num: usize,
+        /// Response to send (y/n/yes/no only)
+        #[arg()]
+        response: String,
+    },
 }
 
 fn main() {
@@ -35,6 +44,7 @@ fn main() {
         Some(Commands::Watch) => cmd_watch(),
         Some(Commands::HookNotify) => cmd_hook_notify(),
         Some(Commands::Init) => cmd_init(),
+        Some(Commands::Respond { agent_num, response }) => cmd_respond(agent_num, &response),
         None => cmd_list(false),
     }
 }
@@ -79,6 +89,39 @@ fn cmd_hook_notify() {
     if let Err(e) = hook::run() {
         eprintln!("poke hook-notify: {}", e);
         std::process::exit(1);
+    }
+}
+
+fn cmd_respond(agent_num: usize, response: &str) {
+    let agg = build_aggregator();
+    let agents = agg.scan_waiting();
+
+    if agents.is_empty() {
+        eprintln!("No agents waiting for attention.");
+        std::process::exit(1);
+    }
+
+    if agent_num == 0 || agent_num > agents.len() {
+        eprintln!(
+            "Invalid agent number {}. Valid range: 1-{}",
+            agent_num,
+            agents.len()
+        );
+        std::process::exit(1);
+    }
+
+    let agent = &agents[agent_num - 1];
+    match switch::send_response(agent, response) {
+        Ok(()) => {
+            println!(
+                "Sent {:?} to {} ({})",
+                response, agent.tmux_session, agent.tmux_pane
+            );
+        }
+        Err(e) => {
+            eprintln!("poke respond: {}", e);
+            std::process::exit(1);
+        }
     }
 }
 

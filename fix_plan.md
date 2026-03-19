@@ -22,4 +22,4 @@
 
 ## Phase 4+
 - [x] #15 — Mycel integration
-- [ ] #16 — Quick response
+- [x] #16 — Quick response
