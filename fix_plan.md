@@ -21,5 +21,5 @@
 - [x] #14 — Implement stale event cleanup
 
 ## Phase 4+
-- [ ] #15 — Mycel integration
+- [x] #15 — Mycel integration
 - [ ] #16 — Quick response

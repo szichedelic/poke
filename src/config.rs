@@ -74,7 +74,7 @@ pub struct DetectorsConfig {
     pub scraping: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ScrapingConfig {
     #[serde(default)]
     pub include_sessions: Vec<String>,

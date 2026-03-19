@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2021"
 description = "Agent attention aggregator — detects AI coding agents waiting for human input across tmux sessions"
 
+[lib]
+name = "poke"
+path = "src/lib.rs"
+
+[[bin]]
+name = "poke"
+path = "src/main.rs"
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }

@@ -1,12 +1,5 @@
-mod config;
-mod detect;
-mod display;
-mod hook;
-mod init;
-mod models;
-mod switch;
-
 use clap::{Parser, Subcommand};
+use poke::{config, detect, display, hook, init};
 
 #[derive(Parser)]
 #[command(name = "poke", version, about = "Agent attention aggregator")]
@@ -47,25 +40,7 @@ fn main() {
 }
 
 fn build_aggregator() -> detect::Aggregator {
-    let cfg = config::Config::load();
-    let mut agg = detect::Aggregator::new();
-
-    // Structured detector first (higher priority in dedup)
-    if cfg.detectors.structured {
-        agg.add_detector(Box::new(detect::structured::StructuredDetector::new(
-            cfg.stale_timeout_secs,
-        )));
-    }
-
-    if cfg.detectors.scraping {
-        let patterns = config::Pattern::load_all();
-        agg.add_detector(Box::new(detect::scraper::TmuxScraper::new(
-            &patterns,
-            cfg.scraping,
-        )));
-    }
-
-    agg
+    poke::build_aggregator()
 }
 
 fn cmd_list(json: bool) {
