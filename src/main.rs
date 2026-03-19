@@ -1,6 +1,7 @@
 mod config;
 mod detect;
 mod models;
+mod switch;
 
 use clap::{Parser, Subcommand};
 
