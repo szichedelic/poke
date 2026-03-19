@@ -89,7 +89,13 @@ fn cmd_count() {
 }
 
 fn cmd_watch() {
-    eprintln!("Watch mode not yet implemented.");
+    let cfg = config::Config::load();
+    let agg = build_aggregator();
+    let interval = std::time::Duration::from_secs(cfg.scan_interval_secs);
+    if let Err(e) = display::tui::run(agg, interval) {
+        eprintln!("poke watch: {}", e);
+        std::process::exit(1);
+    }
 }
 
 fn cmd_hook_notify() {
