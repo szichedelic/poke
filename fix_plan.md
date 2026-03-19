@@ -12,7 +12,7 @@
 ## Phase 2 — Structured Detection + Hooks
 - [x] #8 — Implement structured event file reader
 - [x] #9 — Implement hook-notify subcommand
-- [ ] #10 — Implement poke init for Claude Code hook setup
+- [x] #10 — Implement poke init for Claude Code hook setup
 - [ ] #11 — Implement aggregator with deduplication
 
 ## Phase 3 — Status Line + Watch Mode

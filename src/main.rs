@@ -2,6 +2,7 @@ mod config;
 mod detect;
 mod display;
 mod hook;
+mod init;
 mod models;
 mod switch;
 
@@ -70,7 +71,13 @@ fn cmd_hook_notify() {
 }
 
 fn cmd_init() {
-    eprintln!("init not yet implemented.");
+    match init::run() {
+        Ok(msg) => println!("{}", msg),
+        Err(e) => {
+            eprintln!("poke init: {}", e);
+            std::process::exit(1);
+        }
+    }
 }
 
 #[cfg(test)]
