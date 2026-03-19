@@ -1,4 +1,5 @@
 mod config;
+mod detect;
 mod models;
 
 use clap::{Parser, Subcommand};

@@ -5,7 +5,7 @@
 - [x] #2 — Define core data models
 - [x] #3 — Implement config and pattern loading
 - [x] #7 — Add default patterns for Claude Code and Codex
-- [ ] #4 — Implement Detector trait and tmux scraper
+- [x] #4 — Implement Detector trait and tmux scraper
 - [ ] #6 — Implement tmux switch-client switching
 - [ ] #5 — Implement CLI list mode with interactive select
 
