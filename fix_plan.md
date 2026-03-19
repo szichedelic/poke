@@ -13,7 +13,7 @@
 - [x] #8 — Implement structured event file reader
 - [x] #9 — Implement hook-notify subcommand
 - [x] #10 — Implement poke init for Claude Code hook setup
-- [ ] #11 — Implement aggregator with deduplication
+- [x] #11 — Implement aggregator with deduplication
 
 ## Phase 3 — Status Line + Watch Mode
 - [ ] #12 — Implement poke count for tmux status bar

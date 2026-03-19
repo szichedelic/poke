@@ -46,11 +46,29 @@ fn main() {
     }
 }
 
-fn cmd_list(json: bool) {
+fn build_aggregator() -> detect::Aggregator {
     let cfg = config::Config::load();
-    let patterns = config::Pattern::load_all();
-    let scraper = detect::scraper::TmuxScraper::new(&patterns, cfg.scraping);
-    let agents = detect::Detector::scan(&scraper);
+    let mut agg = detect::Aggregator::new();
+
+    // Structured detector first (higher priority in dedup)
+    if cfg.detectors.structured {
+        agg.add_detector(Box::new(detect::structured::StructuredDetector::new()));
+    }
+
+    if cfg.detectors.scraping {
+        let patterns = config::Pattern::load_all();
+        agg.add_detector(Box::new(detect::scraper::TmuxScraper::new(
+            &patterns,
+            cfg.scraping,
+        )));
+    }
+
+    agg
+}
+
+fn cmd_list(json: bool) {
+    let agg = build_aggregator();
+    let agents = agg.scan_waiting();
     display::cli::run_list(agents, json);
 }
 
