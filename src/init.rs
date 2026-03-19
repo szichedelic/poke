@@ -22,25 +22,47 @@ fn read_settings(path: &Path) -> io::Result<Value> {
     }
 }
 
-/// Check if the poke hook-notify command is already present in the notification hooks.
+/// Check if the poke hook-notify command is already present in the Notification hooks.
+///
+/// Claude Code settings use PascalCase event names and a nested structure:
+/// ```json
+/// "hooks": { "Notification": [{ "hooks": [{ "type": "command", "command": "..." }] }] }
+/// ```
 fn has_poke_hook(settings: &Value) -> bool {
     settings
         .get("hooks")
-        .and_then(|h| h.get("notification"))
+        .and_then(|h| h.get("Notification"))
         .and_then(|n| n.as_array())
-        .map(|arr| {
-            arr.iter().any(|entry| {
-                entry.get("command").and_then(|c| c.as_str()) == Some(HOOK_COMMAND)
+        .map(|groups| {
+            groups.iter().any(|group| {
+                group
+                    .get("hooks")
+                    .and_then(|h| h.as_array())
+                    .map(|hooks| {
+                        hooks.iter().any(|entry| {
+                            entry.get("command").and_then(|c| c.as_str()) == Some(HOOK_COMMAND)
+                        })
+                    })
+                    .unwrap_or(false)
             })
         })
         .unwrap_or(false)
 }
 
 /// Add the poke hook-notify entry to settings, preserving all existing config.
+///
+/// Creates the correct Claude Code hook structure:
+/// ```json
+/// "hooks": { "Notification": [{ "hooks": [{ "type": "command", "command": "poke hook-notify" }] }] }
+/// ```
 fn add_poke_hook(settings: &mut Value) -> Result<(), String> {
-    let hook_entry = json!({
-        "type": "command",
-        "command": HOOK_COMMAND
+    let hook_group = json!({
+        "hooks": [
+            {
+                "type": "command",
+                "command": HOOK_COMMAND
+            }
+        ]
     });
 
     let obj = settings
@@ -54,16 +76,16 @@ fn add_poke_hook(settings: &mut Value) -> Result<(), String> {
         .get_mut("hooks")
         .and_then(|h| h.as_object_mut())
         .ok_or("\"hooks\" is not a JSON object")?;
-    if !hooks.contains_key("notification") {
-        hooks.insert("notification".to_string(), json!([]));
+    if !hooks.contains_key("Notification") {
+        hooks.insert("Notification".to_string(), json!([]));
     }
 
     let notification = hooks
-        .get_mut("notification")
+        .get_mut("Notification")
         .and_then(|n| n.as_array_mut())
-        .ok_or("\"notification\" is not a JSON array")?;
+        .ok_or("\"Notification\" is not a JSON array")?;
 
-    notification.push(hook_entry);
+    notification.push(hook_group);
     Ok(())
 }
 
@@ -147,11 +169,11 @@ mod tests {
         let path = dir.path().join("settings.json");
         let existing = json!({
             "hooks": {
-                "notification": [
-                    {"type": "command", "command": "other-tool notify"}
+                "Notification": [
+                    {"hooks": [{"type": "command", "command": "other-tool notify"}]}
                 ],
-                "preToolUse": [
-                    {"type": "command", "command": "logger"}
+                "PreToolUse": [
+                    {"hooks": [{"type": "command", "command": "logger"}]}
                 ]
             }
         });
@@ -160,12 +182,12 @@ mod tests {
         run_with_path(&path).unwrap();
 
         let settings: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        let notifs = settings["hooks"]["notification"].as_array().unwrap();
+        let notifs = settings["hooks"]["Notification"].as_array().unwrap();
         assert_eq!(notifs.len(), 2);
-        assert_eq!(notifs[0]["command"], "other-tool notify");
-        assert_eq!(notifs[1]["command"], HOOK_COMMAND);
-        // preToolUse preserved
-        assert!(settings["hooks"]["preToolUse"].is_array());
+        assert_eq!(notifs[0]["hooks"][0]["command"], "other-tool notify");
+        assert_eq!(notifs[1]["hooks"][0]["command"], HOOK_COMMAND);
+        // PreToolUse preserved
+        assert!(settings["hooks"]["PreToolUse"].is_array());
     }
 
     #[test]
@@ -180,7 +202,7 @@ mod tests {
         assert!(msg2.contains("already configured"));
 
         let settings: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        let notifs = settings["hooks"]["notification"].as_array().unwrap();
+        let notifs = settings["hooks"]["Notification"].as_array().unwrap();
         assert_eq!(notifs.len(), 1);
     }
 
@@ -197,15 +219,44 @@ mod tests {
     fn has_poke_hook_returns_false_for_empty() {
         assert!(!has_poke_hook(&json!({})));
         assert!(!has_poke_hook(&json!({"hooks": {}})));
-        assert!(!has_poke_hook(&json!({"hooks": {"notification": []}})));
+        assert!(!has_poke_hook(&json!({"hooks": {"Notification": []}})));
+        // Old lowercase format should not match
+        assert!(!has_poke_hook(&json!({
+            "hooks": {
+                "notification": [
+                    {"type": "command", "command": "poke hook-notify"}
+                ]
+            }
+        })));
     }
 
     #[test]
     fn has_poke_hook_returns_true_when_present() {
         let settings = json!({
             "hooks": {
-                "notification": [
-                    {"type": "command", "command": "poke hook-notify"}
+                "Notification": [
+                    {
+                        "hooks": [
+                            {"type": "command", "command": "poke hook-notify"}
+                        ]
+                    }
+                ]
+            }
+        });
+        assert!(has_poke_hook(&settings));
+    }
+
+    #[test]
+    fn has_poke_hook_with_matcher() {
+        let settings = json!({
+            "hooks": {
+                "Notification": [
+                    {
+                        "matcher": "some-pattern",
+                        "hooks": [
+                            {"type": "command", "command": "poke hook-notify"}
+                        ]
+                    }
                 ]
             }
         });

@@ -28,3 +28,4 @@
 - [x] #19 — SwitchError should implement std::error::Error
 - [x] #18 — Hook should write 'working' status when agent resumes
 - [x] #20 — Surface config parse errors in non-count commands
+- [x] #21 — Fix poke init hook format to match Claude Code settings schema
