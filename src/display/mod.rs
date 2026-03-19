@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod count;
 
 use chrono::{DateTime, Utc};
 

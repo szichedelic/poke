@@ -16,7 +16,7 @@
 - [x] #11 — Implement aggregator with deduplication
 
 ## Phase 3 — Status Line + Watch Mode
-- [ ] #12 — Implement poke count for tmux status bar
+- [x] #12 — Implement poke count for tmux status bar
 - [ ] #13 — Implement poke watch TUI mode
 - [ ] #14 — Implement stale event cleanup
 

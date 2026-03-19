@@ -73,8 +73,19 @@ fn cmd_list(json: bool) {
 }
 
 fn cmd_count() {
-    // Output empty string when no agents waiting (or on any error)
-    // Must never print errors — this runs in tmux status bar
+    // Must never print errors to stdout — this runs in tmux status bar.
+    // On any failure, output empty string silently.
+    let output = std::panic::catch_unwind(|| {
+        let cfg = config::Config::load();
+        let agg = build_aggregator();
+        let count = agg.scan_waiting().len();
+        display::count::format_count(count, &cfg.status_format, &cfg.status_empty)
+    });
+
+    match output {
+        Ok(s) => print!("{}", s),
+        Err(_) => {} // Silent failure
+    }
 }
 
 fn cmd_watch() {
