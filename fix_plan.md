@@ -23,3 +23,8 @@
 ## Phase 4+
 - [x] #15 — Mycel integration
 - [x] #16 — Quick response
+
+## Fixes
+- [x] #19 — SwitchError should implement std::error::Error
+- [ ] #18 — Hook should write 'working' status when agent resumes
+- [ ] #20 — Surface config parse errors in non-count commands

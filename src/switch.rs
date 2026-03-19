@@ -22,6 +22,8 @@ impl fmt::Display for SwitchError {
     }
 }
 
+impl std::error::Error for SwitchError {}
+
 /// Allowed quick-response values. Only unambiguous, safe responses are permitted.
 const ALLOWED_RESPONSES: &[&str] = &["y", "n", "yes", "no"];
 
@@ -163,6 +165,12 @@ mod tests {
     fn build_target_formats_correctly() {
         let status = sample_status();
         assert_eq!(build_target(&status), "dev:%42");
+    }
+
+    #[test]
+    fn switch_error_implements_std_error() {
+        let e: Box<dyn std::error::Error> = Box::new(SwitchError::TmuxNotRunning);
+        assert_eq!(e.to_string(), "tmux is not running");
     }
 
     #[test]
