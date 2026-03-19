@@ -1,30 +1,38 @@
 use std::fs;
 use std::path::PathBuf;
 
+use chrono::Utc;
+
 use crate::detect::Detector;
 use crate::models::AgentStatus;
 
 pub struct StructuredDetector {
     events_dir: PathBuf,
+    stale_timeout_secs: u64,
 }
 
 impl StructuredDetector {
-    pub fn new() -> Self {
+    pub fn new(stale_timeout_secs: u64) -> Self {
         let events_dir = dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join(".poke")
             .join("events");
-        Self { events_dir }
+        Self {
+            events_dir,
+            stale_timeout_secs,
+        }
     }
 
     /// Create a detector reading from a custom directory (for testing).
-    pub fn with_dir(events_dir: PathBuf) -> Self {
-        Self { events_dir }
+    pub fn with_dir(events_dir: PathBuf, stale_timeout_secs: u64) -> Self {
+        Self {
+            events_dir,
+            stale_timeout_secs,
+        }
     }
 
     /// Check if a process with the given PID is still running.
     fn is_pid_alive(pid: u32) -> bool {
-        // kill -0 checks existence without sending a signal
         unsafe { libc::kill(pid as i32, 0) == 0 }
     }
 
@@ -32,6 +40,12 @@ impl StructuredDetector {
     fn read_event(path: &std::path::Path) -> Option<AgentStatus> {
         let contents = fs::read_to_string(path).ok()?;
         serde_json::from_str(&contents).ok()
+    }
+
+    /// Check if an event is older than the stale timeout.
+    fn is_stale(&self, status: &AgentStatus) -> bool {
+        let elapsed = Utc::now().signed_duration_since(status.since);
+        elapsed.num_seconds() > self.stale_timeout_secs as i64
     }
 }
 
@@ -53,7 +67,6 @@ impl Detector for StructuredDetector {
             let status = match Self::read_event(&path) {
                 Some(s) => s,
                 None => {
-                    // Invalid file — remove it
                     let _ = fs::remove_file(&path);
                     continue;
                 }
@@ -67,6 +80,13 @@ impl Detector for StructuredDetector {
                 }
             }
 
+            // Stale timeout fallback: delete files older than stale_timeout_secs
+            // regardless of PID status (handles PID recycling edge case)
+            if self.is_stale(&status) {
+                let _ = fs::remove_file(&path);
+                continue;
+            }
+
             results.push(status);
         }
 
@@ -78,11 +98,15 @@ impl Detector for StructuredDetector {
 mod tests {
     use super::*;
     use crate::models::{AgentStatusKind, WaitingType};
-    use chrono::Utc;
+    use chrono::{Duration, Utc};
     use std::fs;
     use tempfile::TempDir;
 
     fn sample_event(status: &str, pid: Option<u32>) -> String {
+        sample_event_with_since(status, pid, &Utc::now().to_rfc3339())
+    }
+
+    fn sample_event_with_since(status: &str, pid: Option<u32>, since: &str) -> String {
         let waiting_type = if status == "waiting" {
             r#""question""#
         } else {
@@ -103,7 +127,7 @@ mod tests {
             waiting_type,
             pid.map(|p| p.to_string())
                 .unwrap_or_else(|| "null".to_string()),
-            Utc::now().to_rfc3339(),
+            since,
         )
     }
 
@@ -111,7 +135,6 @@ mod tests {
     fn reads_valid_event_file() {
         let dir = TempDir::new().unwrap();
         let events_dir = dir.path().to_path_buf();
-        // Use current process PID so it's alive
         let pid = std::process::id();
         fs::write(
             events_dir.join("%42.json"),
@@ -119,7 +142,7 @@ mod tests {
         )
         .unwrap();
 
-        let detector = StructuredDetector::with_dir(events_dir);
+        let detector = StructuredDetector::with_dir(events_dir, 300);
         let results = detector.scan();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].agent, "claude-code");
@@ -138,9 +161,8 @@ mod tests {
         )
         .unwrap();
 
-        let detector = StructuredDetector::with_dir(events_dir);
+        let detector = StructuredDetector::with_dir(events_dir, 300);
         let results = detector.scan();
-        // Structured detector returns all statuses; filtering is done by the aggregator/display
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].status, AgentStatusKind::Working);
     }
@@ -150,10 +172,9 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let events_dir = dir.path().to_path_buf();
         let event_path = events_dir.join("%99.json");
-        // PID 999999 is very unlikely to exist
         fs::write(&event_path, sample_event("waiting", Some(999999))).unwrap();
 
-        let detector = StructuredDetector::with_dir(events_dir);
+        let detector = StructuredDetector::with_dir(events_dir, 300);
         let results = detector.scan();
         assert_eq!(results.len(), 0);
         assert!(!event_path.exists(), "stale event file should be deleted");
@@ -166,7 +187,7 @@ mod tests {
         let event_path = events_dir.join("%50.json");
         fs::write(&event_path, "not valid json!!!").unwrap();
 
-        let detector = StructuredDetector::with_dir(events_dir);
+        let detector = StructuredDetector::with_dir(events_dir, 300);
         let results = detector.scan();
         assert_eq!(results.len(), 0);
         assert!(!event_path.exists(), "invalid event file should be deleted");
@@ -179,16 +200,15 @@ mod tests {
         fs::write(events_dir.join("readme.txt"), "not an event").unwrap();
 
         let txt_path = events_dir.join("readme.txt");
-        let detector = StructuredDetector::with_dir(events_dir);
+        let detector = StructuredDetector::with_dir(events_dir, 300);
         let results = detector.scan();
         assert_eq!(results.len(), 0);
-        // Non-json files should NOT be deleted
         assert!(txt_path.exists());
     }
 
     #[test]
     fn handles_missing_events_dir() {
-        let detector = StructuredDetector::with_dir(PathBuf::from("/nonexistent/path/events"));
+        let detector = StructuredDetector::with_dir(PathBuf::from("/nonexistent/path/events"), 300);
         let results = detector.scan();
         assert_eq!(results.len(), 0);
     }
@@ -203,8 +223,67 @@ mod tests {
         )
         .unwrap();
 
-        let detector = StructuredDetector::with_dir(events_dir);
+        let detector = StructuredDetector::with_dir(events_dir, 300);
         let results = detector.scan();
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn removes_event_past_stale_timeout() {
+        let dir = TempDir::new().unwrap();
+        let events_dir = dir.path().to_path_buf();
+        let event_path = events_dir.join("%45.json");
+        // Event from 10 minutes ago, with alive PID
+        let old_since = (Utc::now() - Duration::seconds(600)).to_rfc3339();
+        let pid = std::process::id();
+        fs::write(
+            &event_path,
+            sample_event_with_since("waiting", Some(pid), &old_since),
+        )
+        .unwrap();
+
+        // Timeout of 300s — event at 600s is stale
+        let detector = StructuredDetector::with_dir(events_dir, 300);
+        let results = detector.scan();
+        assert_eq!(results.len(), 0);
+        assert!(!event_path.exists(), "stale timeout event should be deleted");
+    }
+
+    #[test]
+    fn keeps_event_within_stale_timeout() {
+        let dir = TempDir::new().unwrap();
+        let events_dir = dir.path().to_path_buf();
+        // Event from 1 minute ago, with alive PID
+        let recent_since = (Utc::now() - Duration::seconds(60)).to_rfc3339();
+        let pid = std::process::id();
+        fs::write(
+            events_dir.join("%46.json"),
+            sample_event_with_since("waiting", Some(pid), &recent_since),
+        )
+        .unwrap();
+
+        // Timeout of 300s — event at 60s is still fresh
+        let detector = StructuredDetector::with_dir(events_dir, 300);
+        let results = detector.scan();
+        assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn stale_timeout_removes_no_pid_old_events() {
+        let dir = TempDir::new().unwrap();
+        let events_dir = dir.path().to_path_buf();
+        let event_path = events_dir.join("%47.json");
+        // No PID, but old event
+        let old_since = (Utc::now() - Duration::seconds(600)).to_rfc3339();
+        fs::write(
+            &event_path,
+            sample_event_with_since("waiting", None, &old_since),
+        )
+        .unwrap();
+
+        let detector = StructuredDetector::with_dir(events_dir, 300);
+        let results = detector.scan();
+        assert_eq!(results.len(), 0);
+        assert!(!event_path.exists());
     }
 }

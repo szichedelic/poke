@@ -18,7 +18,7 @@
 ## Phase 3 — Status Line + Watch Mode
 - [x] #12 — Implement poke count for tmux status bar
 - [x] #13 — Implement poke watch TUI mode
-- [ ] #14 — Implement stale event cleanup
+- [x] #14 — Implement stale event cleanup
 
 ## Phase 4+
 - [ ] #15 — Mycel integration

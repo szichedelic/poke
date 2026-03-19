@@ -52,7 +52,9 @@ fn build_aggregator() -> detect::Aggregator {
 
     // Structured detector first (higher priority in dedup)
     if cfg.detectors.structured {
-        agg.add_detector(Box::new(detect::structured::StructuredDetector::new()));
+        agg.add_detector(Box::new(detect::structured::StructuredDetector::new(
+            cfg.stale_timeout_secs,
+        )));
     }
 
     if cfg.detectors.scraping {
