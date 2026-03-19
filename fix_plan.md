@@ -10,7 +10,7 @@
 - [x] #5 — Implement CLI list mode with interactive select
 
 ## Phase 2 — Structured Detection + Hooks
-- [ ] #8 — Implement structured event file reader
+- [x] #8 — Implement structured event file reader
 - [ ] #9 — Implement hook-notify subcommand
 - [ ] #10 — Implement poke init for Claude Code hook setup
 - [ ] #11 — Implement aggregator with deduplication
