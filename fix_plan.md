@@ -30,3 +30,4 @@
 - [x] #20 — Surface config parse errors in non-count commands
 - [x] #21 — Fix poke init hook format to match Claude Code settings schema
 - [x] #22 — Expose poke as a library crate for mycel consumption
+- [x] #23 — Hook should detect notification type from Claude Code payload

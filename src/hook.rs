@@ -8,15 +8,44 @@ use serde::Deserialize;
 
 use crate::models::{AgentStatus, AgentStatusKind, WaitingType};
 
-/// The JSON payload Claude Code sends to the notification hook on stdin.
+/// The JSON payload Claude Code sends to the Notification hook on stdin.
+///
+/// Actual schema from Claude Code:
+/// ```json
+/// {
+///   "hook_event_name": "Notification",
+///   "session_id": "...",
+///   "cwd": "...",
+///   "message": "Claude is waiting for your input",
+///   "title": "Optional title",
+///   "notification_type": "idle_prompt"
+/// }
+/// ```
+///
+/// Known `notification_type` values:
+/// - `idle_prompt` — agent is waiting for user input
+/// - `worker_permission_prompt` — agent needs tool permission
+/// - `elicitation_complete` — MCP elicitation finished (informational)
+/// - `elicitation_response` — MCP elicitation response (informational)
+/// - `auth_success` — login succeeded (informational)
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // session_id and cwd are deserialized for completeness but not yet consumed
 struct HookInput {
-    /// The notification message/summary from Claude Code.
+    /// The notification message from Claude Code.
     #[serde(default)]
     message: Option<String>,
-    /// The type of notification (e.g., "question", "approval").
-    #[serde(default, rename = "type")]
+    /// Optional title (e.g., "Tool Use: Edit").
+    #[serde(default)]
+    title: Option<String>,
+    /// The type of notification — determines whether the agent needs attention.
+    #[serde(default)]
     notification_type: Option<String>,
+    /// The Claude Code session ID.
+    #[serde(default)]
+    session_id: Option<String>,
+    /// Working directory of the Claude Code session.
+    #[serde(default)]
+    cwd: Option<String>,
 }
 
 /// Resolve the tmux session name for the current pane.
@@ -38,23 +67,31 @@ fn get_tmux_session() -> Option<String> {
     }
 }
 
-/// Classify the notification type into a WaitingType.
-/// Returns `None` when the agent has resumed (working state).
+/// Classify the notification into a WaitingType based on `notification_type`.
+///
+/// Returns `Some(WaitingType)` when the agent needs human attention,
+/// `None` for informational notifications (agent is working/doesn't need input).
 fn classify_waiting_type(input: &HookInput) -> Option<WaitingType> {
     match input.notification_type.as_deref() {
+        // Claude Code real notification types
+        Some("idle_prompt") => Some(WaitingType::Question),
+        Some("worker_permission_prompt") => Some(WaitingType::Approval),
+        // Informational — agent doesn't need attention
+        Some("auth_success") | Some("elicitation_complete") | Some("elicitation_response") => None,
+        // Legacy/custom types for forward compatibility
         Some("approval") => Some(WaitingType::Approval),
         Some("choice") => Some(WaitingType::Choice),
         Some("question") => Some(WaitingType::Question),
         // Explicit working/resumed signals
         Some("working") | Some("resumed") => None,
-        // No type but has a message — treat as a question (needs attention)
-        None if input.message.is_some() => Some(WaitingType::Question),
-        // No type and no message — agent resumed, nothing to show
-        None => None,
-        // Unknown types with a message — treat as question
+        // Unknown type with a message — conservatively treat as needing attention
         Some(_) if input.message.is_some() => Some(WaitingType::Question),
-        // Unknown type, no message — treat as working
+        // Unknown type, no message — informational
         Some(_) => None,
+        // No type but has a message — treat as needing attention
+        None if input.message.is_some() => Some(WaitingType::Question),
+        // No type and no message — nothing to show
+        None => None,
     }
 }
 
@@ -97,11 +134,19 @@ pub fn run() -> Result<(), String> {
         AgentStatusKind::Working
     };
 
+    // Build summary: prefer "title: message" when both present
+    let summary = match (&hook_input.title, &hook_input.message) {
+        (Some(title), Some(msg)) => Some(format!("{}: {}", title, msg)),
+        (None, Some(msg)) => Some(msg.clone()),
+        (Some(title), None) => Some(title.clone()),
+        (None, None) => None,
+    };
+
     let event = AgentStatus {
         agent: "claude-code".to_string(),
         status: status_kind,
         waiting_type,
-        summary: hook_input.message,
+        summary,
         tmux_session,
         tmux_pane: tmux_pane.clone(),
         pid: Some(pid),
@@ -141,7 +186,10 @@ mod tests {
     fn hook_input(ntype: Option<&str>, message: Option<&str>) -> HookInput {
         HookInput {
             message: message.map(|s| s.to_string()),
+            title: None,
             notification_type: ntype.map(|s| s.to_string()),
+            session_id: None,
+            cwd: None,
         }
     }
 
@@ -210,11 +258,53 @@ mod tests {
     }
 
     #[test]
-    fn parse_hook_input_full() {
-        let json = r#"{"message": "Should I edit this?", "type": "approval"}"#;
+    fn classify_idle_prompt() {
+        assert_eq!(
+            classify_waiting_type(&hook_input(Some("idle_prompt"), Some("Claude is waiting for your input"))),
+            Some(WaitingType::Question)
+        );
+    }
+
+    #[test]
+    fn classify_worker_permission_prompt() {
+        assert_eq!(
+            classify_waiting_type(&hook_input(Some("worker_permission_prompt"), Some("agent needs permission for Bash"))),
+            Some(WaitingType::Approval)
+        );
+    }
+
+    #[test]
+    fn classify_auth_success_is_none() {
+        assert_eq!(
+            classify_waiting_type(&hook_input(Some("auth_success"), Some("login ok"))),
+            None
+        );
+    }
+
+    #[test]
+    fn classify_elicitation_complete_is_none() {
+        assert_eq!(
+            classify_waiting_type(&hook_input(Some("elicitation_complete"), Some("done"))),
+            None
+        );
+    }
+
+    #[test]
+    fn parse_real_claude_code_payload() {
+        let json = r#"{
+            "hook_event_name": "Notification",
+            "session_id": "abc-123",
+            "cwd": "/home/user/project",
+            "message": "Claude is waiting for your input",
+            "title": "Input Required",
+            "notification_type": "idle_prompt"
+        }"#;
         let input: HookInput = serde_json::from_str(json).unwrap();
-        assert_eq!(input.message, Some("Should I edit this?".to_string()));
-        assert_eq!(input.notification_type, Some("approval".to_string()));
+        assert_eq!(input.message, Some("Claude is waiting for your input".to_string()));
+        assert_eq!(input.notification_type, Some("idle_prompt".to_string()));
+        assert_eq!(input.title, Some("Input Required".to_string()));
+        assert_eq!(input.session_id, Some("abc-123".to_string()));
+        assert_eq!(input.cwd, Some("/home/user/project".to_string()));
     }
 
     #[test]
@@ -227,9 +317,10 @@ mod tests {
 
     #[test]
     fn parse_hook_input_extra_fields() {
-        let json = r#"{"message": "test", "type": "question", "extra": true}"#;
+        let json = r#"{"message": "test", "notification_type": "idle_prompt", "extra": true}"#;
         let input: HookInput = serde_json::from_str(json).unwrap();
         assert_eq!(input.message, Some("test".to_string()));
+        assert_eq!(input.notification_type, Some("idle_prompt".to_string()));
     }
 
     #[test]
