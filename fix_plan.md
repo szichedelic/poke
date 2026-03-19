@@ -7,7 +7,7 @@
 - [x] #7 — Add default patterns for Claude Code and Codex
 - [x] #4 — Implement Detector trait and tmux scraper
 - [x] #6 — Implement tmux switch-client switching
-- [ ] #5 — Implement CLI list mode with interactive select
+- [x] #5 — Implement CLI list mode with interactive select
 
 ## Phase 2 — Structured Detection + Hooks
 - [ ] #8 — Implement structured event file reader

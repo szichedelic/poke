@@ -1,5 +1,6 @@
 mod config;
 mod detect;
+mod display;
 mod models;
 mod switch;
 
@@ -44,11 +45,11 @@ fn main() {
 }
 
 fn cmd_list(json: bool) {
-    if json {
-        println!("[]");
-    } else {
-        println!("No agents waiting for attention.");
-    }
+    let cfg = config::Config::load();
+    let patterns = config::Pattern::load_all();
+    let scraper = detect::scraper::TmuxScraper::new(&patterns, cfg.scraping);
+    let agents = detect::Detector::scan(&scraper);
+    display::cli::run_list(agents, json);
 }
 
 fn cmd_count() {
