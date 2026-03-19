@@ -39,12 +39,22 @@ fn get_tmux_session() -> Option<String> {
 }
 
 /// Classify the notification type into a WaitingType.
-fn classify_waiting_type(notification_type: &Option<String>) -> WaitingType {
-    match notification_type.as_deref() {
-        Some("approval") => WaitingType::Approval,
-        Some("choice") => WaitingType::Choice,
-        // Default to question for unknown or missing types
-        _ => WaitingType::Question,
+/// Returns `None` when the agent has resumed (working state).
+fn classify_waiting_type(input: &HookInput) -> Option<WaitingType> {
+    match input.notification_type.as_deref() {
+        Some("approval") => Some(WaitingType::Approval),
+        Some("choice") => Some(WaitingType::Choice),
+        Some("question") => Some(WaitingType::Question),
+        // Explicit working/resumed signals
+        Some("working") | Some("resumed") => None,
+        // No type but has a message — treat as a question (needs attention)
+        None if input.message.is_some() => Some(WaitingType::Question),
+        // No type and no message — agent resumed, nothing to show
+        None => None,
+        // Unknown types with a message — treat as question
+        Some(_) if input.message.is_some() => Some(WaitingType::Question),
+        // Unknown type, no message — treat as working
+        Some(_) => None,
     }
 }
 
@@ -80,12 +90,17 @@ pub fn run() -> Result<(), String> {
     // Get parent PID (the agent process that invoked the hook)
     let pid = std::os::unix::process::parent_id();
 
-    let waiting_type = classify_waiting_type(&hook_input.notification_type);
+    let waiting_type = classify_waiting_type(&hook_input);
+    let status_kind = if waiting_type.is_some() {
+        AgentStatusKind::Waiting
+    } else {
+        AgentStatusKind::Working
+    };
 
     let event = AgentStatus {
         agent: "claude-code".to_string(),
-        status: AgentStatusKind::Waiting,
-        waiting_type: Some(waiting_type),
+        status: status_kind,
+        waiting_type,
         summary: hook_input.message,
         tmux_session,
         tmux_pane: tmux_pane.clone(),
@@ -123,37 +138,75 @@ mod tests {
     use crate::models::WaitingType;
     use tempfile::TempDir;
 
+    fn hook_input(ntype: Option<&str>, message: Option<&str>) -> HookInput {
+        HookInput {
+            message: message.map(|s| s.to_string()),
+            notification_type: ntype.map(|s| s.to_string()),
+        }
+    }
+
     #[test]
     fn classify_question() {
         assert_eq!(
-            classify_waiting_type(&Some("question".to_string())),
-            WaitingType::Question
+            classify_waiting_type(&hook_input(Some("question"), Some("test?"))),
+            Some(WaitingType::Question)
         );
     }
 
     #[test]
     fn classify_approval() {
         assert_eq!(
-            classify_waiting_type(&Some("approval".to_string())),
-            WaitingType::Approval
+            classify_waiting_type(&hook_input(Some("approval"), Some("allow?"))),
+            Some(WaitingType::Approval)
         );
     }
 
     #[test]
     fn classify_choice() {
         assert_eq!(
-            classify_waiting_type(&Some("choice".to_string())),
-            WaitingType::Choice
+            classify_waiting_type(&hook_input(Some("choice"), Some("pick one"))),
+            Some(WaitingType::Choice)
         );
     }
 
     #[test]
-    fn classify_unknown_defaults_to_question() {
+    fn classify_unknown_with_message_defaults_to_question() {
         assert_eq!(
-            classify_waiting_type(&Some("unknown".to_string())),
-            WaitingType::Question
+            classify_waiting_type(&hook_input(Some("unknown"), Some("hey"))),
+            Some(WaitingType::Question)
         );
-        assert_eq!(classify_waiting_type(&None), WaitingType::Question);
+    }
+
+    #[test]
+    fn classify_no_type_with_message_is_question() {
+        assert_eq!(
+            classify_waiting_type(&hook_input(None, Some("something"))),
+            Some(WaitingType::Question)
+        );
+    }
+
+    #[test]
+    fn classify_working_is_none() {
+        assert_eq!(
+            classify_waiting_type(&hook_input(Some("working"), None)),
+            None
+        );
+    }
+
+    #[test]
+    fn classify_resumed_is_none() {
+        assert_eq!(
+            classify_waiting_type(&hook_input(Some("resumed"), None)),
+            None
+        );
+    }
+
+    #[test]
+    fn classify_no_type_no_message_is_none() {
+        assert_eq!(
+            classify_waiting_type(&hook_input(None, None)),
+            None
+        );
     }
 
     #[test]
