@@ -1,0 +1,17 @@
+[[patterns]]
+name = "claude-code-approval"
+agent = "claude-code"
+waiting_type = "approval"
+regex = '(Allow|Approve|permit).*\?(.*\(Y/n\)|\[y/N\])'
+
+[[patterns]]
+name = "claude-code-question"
+agent = "claude-code"
+waiting_type = "question"
+regex = '\?\s*$'
+
+[[patterns]]
+name = "codex-choice"
+agent = "codex"
+waiting_type = "choice"
+regex = '^\s*\d+[\.\)]\s+'
