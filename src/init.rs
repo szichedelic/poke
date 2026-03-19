@@ -37,30 +37,34 @@ fn has_poke_hook(settings: &Value) -> bool {
 }
 
 /// Add the poke hook-notify entry to settings, preserving all existing config.
-fn add_poke_hook(settings: &mut Value) {
+fn add_poke_hook(settings: &mut Value) -> Result<(), String> {
     let hook_entry = json!({
         "type": "command",
         "command": HOOK_COMMAND
     });
 
-    // Ensure hooks object exists
-    let obj = settings.as_object_mut().unwrap();
+    let obj = settings
+        .as_object_mut()
+        .ok_or("settings is not a JSON object")?;
     if !obj.contains_key("hooks") {
         obj.insert("hooks".to_string(), json!({}));
     }
 
-    let hooks = obj.get_mut("hooks").unwrap().as_object_mut().unwrap();
+    let hooks = obj
+        .get_mut("hooks")
+        .and_then(|h| h.as_object_mut())
+        .ok_or("\"hooks\" is not a JSON object")?;
     if !hooks.contains_key("notification") {
         hooks.insert("notification".to_string(), json!([]));
     }
 
     let notification = hooks
         .get_mut("notification")
-        .unwrap()
-        .as_array_mut()
-        .unwrap();
+        .and_then(|n| n.as_array_mut())
+        .ok_or("\"notification\" is not a JSON array")?;
 
     notification.push(hook_entry);
+    Ok(())
 }
 
 /// Write settings back to disk, creating parent directories as needed.
@@ -82,7 +86,7 @@ pub fn run_with_path(path: &Path) -> Result<String, String> {
         return Ok("Claude Code hook already configured.".to_string());
     }
 
-    add_poke_hook(&mut settings);
+    add_poke_hook(&mut settings).map_err(|e| format!("malformed settings: {}", e))?;
 
     write_settings(path, &settings)
         .map_err(|e| format!("failed to write settings: {}", e))?;

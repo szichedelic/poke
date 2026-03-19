@@ -136,8 +136,9 @@ fn render_ui(
                 .map(|w| format!("{:?}", w).to_lowercase())
                 .unwrap_or_else(|| "unknown".to_string());
             let context = a.summary.clone().unwrap_or_default();
-            let ctx_display = if context.len() > 40 {
-                format!("{}…", &context[..39.min(context.len())])
+            let ctx_display = if context.chars().count() > 40 {
+                let truncated: String = context.chars().take(39).collect();
+                format!("{}…", truncated)
             } else {
                 context
             };
