@@ -53,6 +53,17 @@ fn build_aggregator() -> detect::Aggregator {
     poke::build_aggregator()
 }
 
+/// Load config, printing a warning to stderr on parse errors and falling back to defaults.
+fn load_config_or_warn() -> config::Config {
+    match config::Config::load() {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            eprintln!("warning: {}, using defaults", e);
+            config::Config::default()
+        }
+    }
+}
+
 fn cmd_list(json: bool) {
     let agg = build_aggregator();
     let agents = agg.scan_waiting();
@@ -63,7 +74,7 @@ fn cmd_count() {
     // Must never print errors to stdout — this runs in tmux status bar.
     // On any failure, output empty string silently.
     let output = std::panic::catch_unwind(|| {
-        let cfg = config::Config::load();
+        let cfg = config::Config::load_or_default();
         let agg = build_aggregator();
         let count = agg.scan_waiting().len();
         display::count::format_count(count, &cfg.status_format, &cfg.status_empty)
@@ -76,7 +87,7 @@ fn cmd_count() {
 }
 
 fn cmd_watch() {
-    let cfg = config::Config::load();
+    let cfg = load_config_or_warn();
     let agg = build_aggregator();
     let interval = std::time::Duration::from_secs(cfg.scan_interval_secs);
     if let Err(e) = display::tui::run(agg, interval) {

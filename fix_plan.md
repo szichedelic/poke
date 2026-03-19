@@ -27,4 +27,4 @@
 ## Fixes
 - [x] #19 — SwitchError should implement std::error::Error
 - [x] #18 — Hook should write 'working' status when agent resumes
-- [ ] #20 — Surface config parse errors in non-count commands
+- [x] #20 — Surface config parse errors in non-count commands

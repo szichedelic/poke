@@ -130,18 +130,32 @@ fn default_true() -> bool {
 }
 
 impl Config {
-    pub fn load() -> Self {
-        let config_path = dirs::home_dir()
-            .map(|h| h.join(".poke").join("config.toml"));
+    /// Load config from ~/.poke/config.toml, returning an error if the file
+    /// exists but cannot be parsed. Missing file is not an error (returns defaults).
+    pub fn load() -> Result<Self, String> {
+        let config_path = match dirs::home_dir() {
+            Some(h) => h.join(".poke").join("config.toml"),
+            None => return Ok(Config::default()),
+        };
 
-        if let Some(path) = config_path {
-            if let Ok(contents) = std::fs::read_to_string(&path) {
-                if let Ok(config) = toml::from_str(&contents) {
-                    return config;
-                }
-            }
-        }
-        Config::default()
+        let contents = match std::fs::read_to_string(&config_path) {
+            Ok(c) => c,
+            Err(_) => return Ok(Config::default()), // File doesn't exist
+        };
+
+        toml::from_str(&contents).map_err(|e| {
+            format!(
+                "failed to parse {}: {}",
+                config_path.display(),
+                e
+            )
+        })
+    }
+
+    /// Load config, silently falling back to defaults on any error.
+    /// Use this only where errors must never be surfaced (e.g., tmux status bar).
+    pub fn load_or_default() -> Self {
+        Config::load().unwrap_or_default()
     }
 }
 
@@ -181,6 +195,23 @@ mod tests {
             regex::Regex::new(&pat.regex)
                 .unwrap_or_else(|e| panic!("Pattern '{}' has invalid regex: {}", pat.name, e));
         }
+    }
+
+    #[test]
+    fn invalid_toml_gives_parse_error() {
+        let bad_toml = "scan_interval_secs\nno equals sign here";
+        let result = toml::from_str::<Config>(bad_toml);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("expected"), "error should describe problem: {}", err);
+    }
+
+    #[test]
+    fn load_or_default_returns_defaults() {
+        // In test environment, ~/.poke/config.toml likely doesn't exist,
+        // so this should return defaults without error.
+        let cfg = Config::load_or_default();
+        assert_eq!(cfg.scan_interval_secs, default_scan_interval());
     }
 
     #[test]

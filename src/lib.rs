@@ -14,7 +14,7 @@ use detect::Aggregator;
 /// It loads config, creates both structured and scraping detectors
 /// as configured, and returns an aggregator ready to scan.
 pub fn build_aggregator() -> Aggregator {
-    let cfg = config::Config::load();
+    let cfg = config::Config::load_or_default();
     build_aggregator_with_config(&cfg)
 }
 
