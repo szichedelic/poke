@@ -6,7 +6,8 @@ pub mod init;
 pub mod models;
 pub mod switch;
 
-use detect::Aggregator;
+pub use detect::Aggregator;
+pub use models::{AgentStatus, AgentStatusKind, WaitingType};
 
 /// Build a fully configured aggregator using the user's config.
 ///
