@@ -15,8 +15,7 @@ fn claude_settings_path() -> Option<PathBuf> {
 fn read_settings(path: &Path) -> io::Result<Value> {
     if path.exists() {
         let contents = fs::read_to_string(path)?;
-        serde_json::from_str(&contents)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        serde_json::from_str(&contents).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     } else {
         Ok(json!({}))
     }
@@ -95,7 +94,7 @@ fn write_settings(path: &Path, settings: &Value) -> io::Result<()> {
         fs::create_dir_all(parent)?;
     }
     let json = serde_json::to_string_pretty(settings)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        .map_err(io::Error::other)?;
     fs::write(path, json)
 }
 
@@ -110,8 +109,7 @@ pub fn run_with_path(path: &Path) -> Result<String, String> {
 
     add_poke_hook(&mut settings).map_err(|e| format!("malformed settings: {}", e))?;
 
-    write_settings(path, &settings)
-        .map_err(|e| format!("failed to write settings: {}", e))?;
+    write_settings(path, &settings).map_err(|e| format!("failed to write settings: {}", e))?;
 
     // Also create the events directory
     if let Some(home) = dirs::home_dir() {
@@ -123,8 +121,8 @@ pub fn run_with_path(path: &Path) -> Result<String, String> {
 
 /// Run the init command using the default settings path.
 pub fn run() -> Result<String, String> {
-    let path = claude_settings_path()
-        .ok_or_else(|| "could not determine home directory".to_string())?;
+    let path =
+        claude_settings_path().ok_or_else(|| "could not determine home directory".to_string())?;
     run_with_path(&path)
 }
 

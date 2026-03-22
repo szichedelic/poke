@@ -113,16 +113,15 @@ pub fn run() -> Result<(), String> {
         .read_to_string(&mut input)
         .map_err(|e| format!("failed to read stdin: {}", e))?;
 
-    let hook_input: HookInput = serde_json::from_str(&input)
-        .map_err(|e| format!("failed to parse stdin JSON: {}", e))?;
+    let hook_input: HookInput =
+        serde_json::from_str(&input).map_err(|e| format!("failed to parse stdin JSON: {}", e))?;
 
     // Get tmux pane from environment
     let tmux_pane = std::env::var("TMUX_PANE")
         .map_err(|_| "TMUX_PANE not set — are you running inside tmux?".to_string())?;
 
     // Resolve tmux session
-    let tmux_session = get_tmux_session()
-        .unwrap_or_else(|| "unknown".to_string());
+    let tmux_session = get_tmux_session().unwrap_or_else(|| "unknown".to_string());
 
     // Get parent PID (the agent process that invoked the hook)
     let pid = std::os::unix::process::parent_id();
@@ -161,8 +160,7 @@ pub fn run() -> Result<(), String> {
     let json = serde_json::to_string_pretty(&event)
         .map_err(|e| format!("failed to serialize event: {}", e))?;
 
-    fs::write(&event_path, json)
-        .map_err(|e| format!("failed to write event file: {}", e))?;
+    fs::write(&event_path, json).map_err(|e| format!("failed to write event file: {}", e))?;
 
     Ok(())
 }
@@ -172,8 +170,8 @@ pub fn write_event(events_dir: &std::path::Path, event: &AgentStatus) -> io::Res
     fs::create_dir_all(events_dir)?;
     let filename = format!("{}.json", event.tmux_pane.replace('%', "pct"));
     let path = events_dir.join(&filename);
-    let json = serde_json::to_string_pretty(event)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let json =
+        serde_json::to_string_pretty(event).map_err(io::Error::other)?;
     fs::write(path, json)
 }
 
@@ -251,16 +249,16 @@ mod tests {
 
     #[test]
     fn classify_no_type_no_message_is_none() {
-        assert_eq!(
-            classify_waiting_type(&hook_input(None, None)),
-            None
-        );
+        assert_eq!(classify_waiting_type(&hook_input(None, None)), None);
     }
 
     #[test]
     fn classify_idle_prompt() {
         assert_eq!(
-            classify_waiting_type(&hook_input(Some("idle_prompt"), Some("Claude is waiting for your input"))),
+            classify_waiting_type(&hook_input(
+                Some("idle_prompt"),
+                Some("Claude is waiting for your input")
+            )),
             Some(WaitingType::Question)
         );
     }
@@ -268,7 +266,10 @@ mod tests {
     #[test]
     fn classify_worker_permission_prompt() {
         assert_eq!(
-            classify_waiting_type(&hook_input(Some("worker_permission_prompt"), Some("agent needs permission for Bash"))),
+            classify_waiting_type(&hook_input(
+                Some("worker_permission_prompt"),
+                Some("agent needs permission for Bash")
+            )),
             Some(WaitingType::Approval)
         );
     }
@@ -300,7 +301,10 @@ mod tests {
             "notification_type": "idle_prompt"
         }"#;
         let input: HookInput = serde_json::from_str(json).unwrap();
-        assert_eq!(input.message, Some("Claude is waiting for your input".to_string()));
+        assert_eq!(
+            input.message,
+            Some("Claude is waiting for your input".to_string())
+        );
         assert_eq!(input.notification_type, Some("idle_prompt".to_string()));
         assert_eq!(input.title, Some("Input Required".to_string()));
         assert_eq!(input.session_id, Some("abc-123".to_string()));

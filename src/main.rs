@@ -44,7 +44,10 @@ fn main() {
         Some(Commands::Watch) => cmd_watch(),
         Some(Commands::HookNotify) => cmd_hook_notify(),
         Some(Commands::Init) => cmd_init(),
-        Some(Commands::Respond { agent_num, response }) => cmd_respond(agent_num, &response),
+        Some(Commands::Respond {
+            agent_num,
+            response,
+        }) => cmd_respond(agent_num, &response),
         None => cmd_list(false),
     }
 }
@@ -80,9 +83,8 @@ fn cmd_count() {
         display::count::format_count(count, &cfg.status_format, &cfg.status_empty)
     });
 
-    match output {
-        Ok(s) => print!("{}", s),
-        Err(_) => {} // Silent failure
+    if let Ok(s) = output {
+        print!("{}", s);
     }
 }
 

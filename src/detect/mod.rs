@@ -18,6 +18,12 @@ pub struct Aggregator {
     detectors: Vec<Box<dyn Detector>>,
 }
 
+impl Default for Aggregator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Aggregator {
     pub fn new() -> Self {
         Self {
@@ -100,7 +106,13 @@ mod tests {
         let mut agg = Aggregator::new();
         agg.add_detector(Box::new(MockDetector {
             results: vec![
-                make_status("%1", "claude-code", AgentStatusKind::Waiting, Some(WaitingType::Question), 5),
+                make_status(
+                    "%1",
+                    "claude-code",
+                    AgentStatusKind::Waiting,
+                    Some(WaitingType::Question),
+                    5,
+                ),
                 make_status("%2", "codex", AgentStatusKind::Working, None, 3),
             ],
         }));
@@ -148,7 +160,13 @@ mod tests {
 
         // Structured says working
         agg.add_detector(Box::new(MockDetector {
-            results: vec![make_status("%42", "claude-code", AgentStatusKind::Working, None, 1)],
+            results: vec![make_status(
+                "%42",
+                "claude-code",
+                AgentStatusKind::Working,
+                None,
+                1,
+            )],
         }));
 
         // Scraping says waiting (stale match)
@@ -200,9 +218,27 @@ mod tests {
         let mut agg = Aggregator::new();
         agg.add_detector(Box::new(MockDetector {
             results: vec![
-                make_status("%1", "claude-code", AgentStatusKind::Waiting, Some(WaitingType::Question), 2),
-                make_status("%2", "codex", AgentStatusKind::Waiting, Some(WaitingType::Choice), 10),
-                make_status("%3", "claude-code", AgentStatusKind::Waiting, Some(WaitingType::Approval), 5),
+                make_status(
+                    "%1",
+                    "claude-code",
+                    AgentStatusKind::Waiting,
+                    Some(WaitingType::Question),
+                    2,
+                ),
+                make_status(
+                    "%2",
+                    "codex",
+                    AgentStatusKind::Waiting,
+                    Some(WaitingType::Choice),
+                    10,
+                ),
+                make_status(
+                    "%3",
+                    "claude-code",
+                    AgentStatusKind::Waiting,
+                    Some(WaitingType::Approval),
+                    5,
+                ),
             ],
         }));
 

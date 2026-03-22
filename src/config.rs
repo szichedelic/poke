@@ -20,7 +20,8 @@ impl Pattern {
     /// Load patterns: user patterns from ~/.poke/patterns.toml merged with embedded defaults.
     /// User patterns with the same name override defaults.
     pub fn load_all() -> Vec<Pattern> {
-        let mut patterns: Vec<Pattern> = match toml::from_str::<PatternsFile>(DEFAULT_PATTERNS_TOML) {
+        let mut patterns: Vec<Pattern> = match toml::from_str::<PatternsFile>(DEFAULT_PATTERNS_TOML)
+        {
             Ok(f) => f.patterns,
             Err(_) => Vec::new(),
         };
@@ -29,7 +30,9 @@ impl Pattern {
             if let Ok(contents) = std::fs::read_to_string(&user_path) {
                 if let Ok(user_file) = toml::from_str::<PatternsFile>(&contents) {
                     for user_pat in user_file.patterns {
-                        if let Some(existing) = patterns.iter_mut().find(|p| p.name == user_pat.name) {
+                        if let Some(existing) =
+                            patterns.iter_mut().find(|p| p.name == user_pat.name)
+                        {
                             *existing = user_pat;
                         } else {
                             patterns.push(user_pat);
@@ -74,7 +77,7 @@ pub struct DetectorsConfig {
     pub scraping: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct ScrapingConfig {
     #[serde(default)]
     pub include_sessions: Vec<String>,
@@ -104,14 +107,6 @@ impl Default for DetectorsConfig {
     }
 }
 
-impl Default for ScrapingConfig {
-    fn default() -> Self {
-        Self {
-            include_sessions: Vec::new(),
-            exclude_sessions: Vec::new(),
-        }
-    }
-}
 
 fn default_scan_interval() -> u64 {
     3
@@ -143,13 +138,8 @@ impl Config {
             Err(_) => return Ok(Config::default()), // File doesn't exist
         };
 
-        toml::from_str(&contents).map_err(|e| {
-            format!(
-                "failed to parse {}: {}",
-                config_path.display(),
-                e
-            )
-        })
+        toml::from_str(&contents)
+            .map_err(|e| format!("failed to parse {}: {}", config_path.display(), e))
     }
 
     /// Load config, silently falling back to defaults on any error.
@@ -203,7 +193,11 @@ mod tests {
         let result = toml::from_str::<Config>(bad_toml);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("expected"), "error should describe problem: {}", err);
+        assert!(
+            err.contains("expected"),
+            "error should describe problem: {}",
+            err
+        );
     }
 
     #[test]
