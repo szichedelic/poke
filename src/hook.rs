@@ -170,8 +170,7 @@ pub fn write_event(events_dir: &std::path::Path, event: &AgentStatus) -> io::Res
     fs::create_dir_all(events_dir)?;
     let filename = format!("{}.json", event.tmux_pane.replace('%', "pct"));
     let path = events_dir.join(&filename);
-    let json =
-        serde_json::to_string_pretty(event).map_err(io::Error::other)?;
+    let json = serde_json::to_string_pretty(event).map_err(io::Error::other)?;
     fs::write(path, json)
 }
 

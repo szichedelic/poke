@@ -110,11 +110,7 @@ impl TmuxScraper {
             for pattern in &self.patterns {
                 if pattern.regex.is_match(trimmed) {
                     let summary = truncate(trimmed, 80);
-                    return Some((
-                        pattern.agent.clone(),
-                        pattern.waiting_type.clone(),
-                        summary,
-                    ));
+                    return Some((pattern.agent.clone(), pattern.waiting_type.clone(), summary));
                 }
             }
         }

@@ -2,7 +2,9 @@ use std::io;
 use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
 use crossterm::ExecutableCommand;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Cell, Row, Table, TableState};
@@ -115,9 +117,7 @@ fn render_ui(
     let area = frame.area();
 
     if agents.is_empty() {
-        let block = Block::default()
-            .title(" poke watch ")
-            .borders(Borders::ALL);
+        let block = Block::default().title(" poke watch ").borders(Borders::ALL);
         let text = ratatui::widgets::Paragraph::new("No agents waiting for attention.")
             .block(block)
             .style(Style::default().fg(Color::DarkGray));
@@ -155,9 +155,20 @@ fn render_ui(
         })
         .collect();
 
-    let header = Row::new(vec!["#", "Agent", "Waiting For", "Context", "Session", "Since"])
-        .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        .bottom_margin(1);
+    let header = Row::new(vec![
+        "#",
+        "Agent",
+        "Waiting For",
+        "Context",
+        "Session",
+        "Since",
+    ])
+    .style(
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    )
+    .bottom_margin(1);
 
     let widths = [
         Constraint::Length(3),
@@ -176,11 +187,7 @@ fn render_ui(
 
     let table = Table::new(rows, widths)
         .header(header)
-        .block(
-            Block::default()
-                .title(" poke watch ")
-                .borders(Borders::ALL),
-        )
+        .block(Block::default().title(" poke watch ").borders(Borders::ALL))
         .row_highlight_style(
             Style::default()
                 .bg(Color::DarkGray)
@@ -192,7 +199,7 @@ fn render_ui(
 
     // Status bar
     let status_text = status_msg.unwrap_or("↑/↓ navigate · Enter switch · r refresh · q quit");
-    let status = ratatui::widgets::Paragraph::new(status_text)
-        .style(Style::default().fg(Color::DarkGray));
+    let status =
+        ratatui::widgets::Paragraph::new(status_text).style(Style::default().fg(Color::DarkGray));
     frame.render_widget(status, chunks[1]);
 }

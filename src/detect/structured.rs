@@ -217,11 +217,7 @@ mod tests {
     fn keeps_event_without_pid() {
         let dir = TempDir::new().unwrap();
         let events_dir = dir.path().to_path_buf();
-        fs::write(
-            events_dir.join("%44.json"),
-            sample_event("waiting", None),
-        )
-        .unwrap();
+        fs::write(events_dir.join("%44.json"), sample_event("waiting", None)).unwrap();
 
         let detector = StructuredDetector::with_dir(events_dir, 300);
         let results = detector.scan();
@@ -246,7 +242,10 @@ mod tests {
         let detector = StructuredDetector::with_dir(events_dir, 300);
         let results = detector.scan();
         assert_eq!(results.len(), 0);
-        assert!(!event_path.exists(), "stale timeout event should be deleted");
+        assert!(
+            !event_path.exists(),
+            "stale timeout event should be deleted"
+        );
     }
 
     #[test]

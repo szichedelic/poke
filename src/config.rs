@@ -107,7 +107,6 @@ impl Default for DetectorsConfig {
     }
 }
 
-
 fn default_scan_interval() -> u64 {
     3
 }

@@ -173,7 +173,12 @@ mod tests {
     use crate::models::{AgentStatus, AgentStatusKind, WaitingType};
     use chrono::{Duration, Utc};
 
-    fn make_agent(agent: &str, waiting_type: WaitingType, summary: &str, mins_ago: i64) -> AgentStatus {
+    fn make_agent(
+        agent: &str,
+        waiting_type: WaitingType,
+        summary: &str,
+        mins_ago: i64,
+    ) -> AgentStatus {
         AgentStatus {
             agent: agent.to_string(),
             status: AgentStatusKind::Waiting,
@@ -214,7 +219,12 @@ mod tests {
 
     #[test]
     fn format_table_single_row() {
-        let agents = vec![make_agent("claude-code", WaitingType::Approval, "wants to edit src/main.rs", 3)];
+        let agents = vec![make_agent(
+            "claude-code",
+            WaitingType::Approval,
+            "wants to edit src/main.rs",
+            3,
+        )];
         let table = format_table(&agents);
         assert!(table.contains("Agent"));
         assert!(table.contains("Waiting For"));
@@ -238,7 +248,12 @@ mod tests {
     #[test]
     fn format_table_truncates_long_context() {
         let long_ctx = "a".repeat(80);
-        let agents = vec![make_agent("claude-code", WaitingType::Question, &long_ctx, 1)];
+        let agents = vec![make_agent(
+            "claude-code",
+            WaitingType::Question,
+            &long_ctx,
+            1,
+        )];
         let table = format_table(&agents);
         assert!(table.contains("…"));
     }

@@ -93,8 +93,7 @@ fn write_settings(path: &Path, settings: &Value) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let json = serde_json::to_string_pretty(settings)
-        .map_err(io::Error::other)?;
+    let json = serde_json::to_string_pretty(settings).map_err(io::Error::other)?;
     fs::write(path, json)
 }
 
